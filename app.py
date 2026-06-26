@@ -14,7 +14,9 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-pro')
+
+# モデル名を最新の gemini-1.5-flash に変更
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -26,6 +28,7 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_message = event.message.text
+    # Geminiによる応答生成
     response = model.generate_content(user_message)
     line_bot_api.reply_message(
         event.reply_token,
