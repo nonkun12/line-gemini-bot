@@ -6,12 +6,11 @@ import google.generativeai as genai
 
 app = flask.Flask(__name__)
 
-# 環境変数
 line_bot_api = LineBotApi(os.environ.get("LINE_ACCESS_TOKEN"))
 handler = WebhookHandler(os.environ.get("LINE_CHANNEL_SECRET"))
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
-# モデル設定の変更：パスを付けずに直接モデル名を指定
+# モデル名をシンプルに指定する
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 @app.route("/callback", methods=['POST'])
@@ -23,12 +22,14 @@ def callback():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    # Geminiへの応答生成
-    response = model.generate_content(event.message.text)
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=response.text)
-    )
+    try:
+        response = model.generate_content(event.message.text)
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=response.text)
+        )
+    except Exception as e:
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     app.run()
