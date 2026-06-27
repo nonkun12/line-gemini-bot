@@ -1,38 +1,52 @@
-import os
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from linebot import LineBotApi, WebhookHandler
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 from linebot.exceptions import InvalidSignatureError
-import google.generativeai as genai
+import google.genai as genai
+import os
 
 app = FastAPI()
 
-line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
-handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
+# LINE credentials
+LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 
+line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(LINE_CHANNEL_SECRET)
+
+# Gemini API
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-1.5-flash-latest")  # ← 修正ポイント
+
+@app.get("/")
+def root():
+    return {"message": "Hello World"}
 
 @app.post("/callback")
 async def callback(request: Request):
+    signature = request.headers.get("X-Line-Signature")
     body = await request.body()
-    signature = request.headers.get("X-Line-Signature", "")
+    body_text = body.decode("utf-8")
 
     try:
-        handler.handle(body.decode(), signature)
+        handler.handle(body_text, signature)
     except InvalidSignatureError:
-        raise HTTPException(status_code=400, detail="Invalid signature")
+        return JSONResponse(status_code=400, content={"message": "Invalid signature"})
 
-    return "OK"
+    return JSONResponse(status_code=200, content={"message": "OK"})
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_text = event.message.text
-    response = model.generate_content(user_text)
-    reply = response.text.strip()
 
+    # Gemini に問い合わせ
+    response = model.generate_content(user_text)
+    reply_text = response.text
+
+    # LINE に返信
     line_bot_api.reply_message(
         event.reply_token,
-        TextSendMessage(text=reply)
+        TextSendMessage(text=reply_text)
     )
-s
+
