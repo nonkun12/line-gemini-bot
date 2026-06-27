@@ -15,7 +15,7 @@ LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# Gemini API（configure は使わない）
+# Gemini API（最新版の正しい書き方）
 model = genai.GenerativeModel(
     model="gemini-1.5-flash-latest",
     api_key=os.getenv("GEMINI_API_KEY")
