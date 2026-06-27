@@ -1,37 +1,38 @@
 import os
-import flask
+from fastapi import FastAPI, Request, HTTPException
 from linebot import LineBotApi, WebhookHandler
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
-from google import genai
+from linebot.exceptions import InvalidSignatureError
+import google.generativeai as genai
 
-app = flask.Flask(__name__)
+app = FastAPI()
 
-# ★ここが重要：ルート（/）へのアクセスに反応するようにする
-@app.route("/", methods=['GET'])
-def home():
-    return "Bot is running", 200
+line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
+handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
-line_bot_api = LineBotApi(os.environ.get("LINE_ACCESS_TOKEN"))
-handler = WebhookHandler(os.environ.get("LINE_CHANNEL_SECRET"))
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel("gemini-1.5-flash")
 
-@app.route("/callback", methods=['POST'])
-def callback():
-    signature = flask.request.headers.get('X-Line-Signature')
-    body = flask.request.get_data(as_text=True)
-    handler.handle(body, signature)
-    return 'OK'
+@app.post("/callback")
+async def callback(request: Request):
+    body = await request.body()
+    signature = request.headers.get("X-Line-Signature", "")
+
+    try:
+        handler.handle(body.decode(), signature)
+    except InvalidSignatureError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    return "OK"
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    response = client.models.generate_content(
-        model='gemini-1.5-flash',
-        contents=event.message.text,
-    )
+    user_text = event.message.text
+    response = model.generate_content(user_text)
+    reply = response.text.strip()
+
     line_bot_api.reply_message(
         event.reply_token,
-        TextSendMessage(text=response.text)
+        TextSendMessage(text=reply)
     )
-
-if __name__ == "__main__":
-    app.run()
+s

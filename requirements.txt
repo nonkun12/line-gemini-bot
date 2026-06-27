@@ -1,4 +1,4 @@
-Flask
+fastapi
+uvicorn
 line-bot-sdk
-google-genai
-gunicorn
+google-generativeai
